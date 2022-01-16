@@ -1,0 +1,122 @@
+import requests
+from bs4 import BeautifulSoup
+
+#function to go to get url, parse html, pull all <a> titles and href links, and to output them in clear format
+def url_scrape(url):
+    global scraped_links
+    if url[len(url) - 1] == "/":
+        url = url[:len(url)-1]
+    scraped_links.append(url)
+    page = requests.get(url)
+    soup = BeautifulSoup(page.content, "html.parser")
+    link_list = soup.find_all("a")
+    print(f"\nLINKS FOUND ON {url}:")
+    if len(file_name) > 0:
+        smpfilename = file_name + ".txt"
+        f = open(smpfilename, "a")
+        f.write(f"\nLINKS FOUND ON {url}:")
+
+    for link in link_list:
+        if link.get("href"):
+            urlstr = link.get("href").strip()
+            link_text = link.text.strip()
+            if urlstr == "" or urlstr == "#" or urlstr == url:
+                continue
+            else:
+                if link_text == "":
+                    link_text = "No link Text"
+
+                if urlstr[0] == "/":
+                    urlstr = url + urlstr[1:]
+                if urlstr not in found_links and urlstr not in scraped_links:
+                    found_links.append(urlstr)
+                    if len(file_name) > 0:
+                        smpfilename = file_name + ".txt"
+                        f = open(smpfilename, "a")
+                        try:#hebrew characters - couldn't write them to txt file... צריך עיון
+                            f.write(f"\n{link_text} : {urlstr}")
+                        except:
+                            f.write(f"\n  ??  : {urlstr}")
+
+                        f.close()
+                    else:
+                        pass
+                    print(link_text, ':', urlstr)
+
+#functoin for yes or no question
+def response_y_n(question):
+    reply = str(input(question)).lower().strip()
+    if reply[0] == 'y':
+        return True
+    if reply[0] == 'n':
+        return False
+    else:
+        return yes_or_no("Please enter Yes or No")
+#function to make sure the url is accessible (can't scrape urls from a bad link, or if site is down etc)
+def validate_url(test):
+    try:
+        test_site_response = requests.get(test).status_code
+        if test_site_response == 200:
+            return True
+    except:
+        return False
+        # return validate_url(f"We cannot connect to that site, please enter a valid URL (try copying it from the browser bar): ")
+
+def save_to_file():
+    global file_name
+    if response_y_n("Would you like to save these results to file? (y/n)" ):
+        file_name = input("Please enter a file name: ")
+        smpfilename = file_name + ".txt"
+        f = open(smpfilename, "w")
+        f.write(f"LINKS FOUND ON {input_url}:")
+        f.close()
+        return True
+    else:
+        return False
+
+def recursive():
+    global levels
+    if response_y_n("Would you like to scrape recursively? (y/n)" ):
+        levels += int(input("How many recursive levels would you like to scrape? "
+                            "\n(Entering 1 will check only the URL you entered. Max is 4. "))
+        if levels > 4:
+            levels == 4
+    #     return True
+    # else:
+    #     return False
+
+levels = 0
+file_name = ""
+found_links = []
+scraped_links = []
+input_url = input("What site would you like to scrape URLs from? ")
+attempts = 1
+
+while attempts < 4:
+    if validate_url(input_url):
+        break
+    if attempts == 3:
+        print("Too many bad attempts. Please try again later")
+        quit()
+    else:
+        attempts += 1
+        input_url = input("We cannot connect to that site, please enter a valid URL (try copying it from the browser bar): ")
+if recursive():
+    pass # this function will save how many levels, if user chooses yes
+
+if save_to_file():
+    print("you chose to save to file")
+
+url_scrape(input_url)
+# print(scraped_urls)
+while levels > 1:
+    print(f"\n\nCurrent Recursion Level: {levels}")
+    if len(found_links) > 0:
+        for link in list(found_links):  #need to make a copy of the list - cannot remove from list when iterating
+            if link not in scraped_links:
+                if validate_url(link):
+                    url_scrape(link)
+                    found_links.remove(link)
+    else:
+        break
+    levels -= 1
